@@ -82,12 +82,22 @@ function playSound(effect) {
 }
 
 function playMusicStep() {
-    const notes = [196, 246.94, 293.66, 369.99, 293.66, 246.94, 220, 293.66];
+    const melody = [392, 493.88, 587.33, 493.88, 440, 493.88, 587.33, 493.88];
+    const chords = [
+        { notes: [196, 246.94, 293.66], bass: 98 },
+        { notes: [146.83, 185, 220], bass: 73.42 },
+        { notes: [164.81, 196, 246.94], bass: 82.41 },
+        { notes: [130.81, 164.81, 196], bass: 65.41 }
+    ];
     const context = getAudioContext();
     if (!context) return;
     const now = context.currentTime;
-    playTone(notes[musicStep % notes.length], 0.34, 'triangle', 0.10, now);
-    if (musicStep % 4 === 0) playTone(notes[musicStep % notes.length] / 2, 0.62, 'sine', 0.08, now);
+    const chord = chords[Math.floor(musicStep / 8) % chords.length];
+    playTone(melody[musicStep % melody.length], 0.3, 'triangle', 0.045, now);
+    if (musicStep % 8 === 0) {
+        chord.notes.forEach((note) => playTone(note, 3.3, 'sine', 0.012, now));
+    }
+    if (musicStep % 4 === 0) playTone(chord.bass, 0.7, 'sine', 0.035, now);
     musicStep += 1;
 }
 
@@ -474,6 +484,12 @@ function showTrackingOrder(order) {
 }
 
 const trackingForm = get('trackingForm');
+function showTrackingMessage(message) {
+    const result = get('trackingResult');
+    result.textContent = message;
+    result.hidden = false;
+}
+
 function findOrderByReference(reference) {
     const normalizedReference = reference.trim().toUpperCase();
     return orders.find((item) => item.orderId.toUpperCase() === normalizedReference ||
@@ -482,14 +498,17 @@ function findOrderByReference(reference) {
 
 if (trackingForm) {
     if (ordersLoadError) {
-        get('trackingResult').textContent = 'No se pudo leer el historial de pedidos de este navegador.';
+        showTrackingMessage('No se pudo leer el historial de pedidos de este navegador. Revisa el almacenamiento del navegador e inténtalo de nuevo.');
     }
     trackingForm.addEventListener('submit', (event) => {
         event.preventDefault();
+        if (ordersLoadError) {
+            showTrackingMessage('No se pudo leer el historial de pedidos de este navegador. Revisa el almacenamiento del navegador e inténtalo de nuevo.');
+            return;
+        }
         const order = findOrderByReference(get('trackingReference').value);
         if (!order) {
-            get('trackingResult').textContent = 'No encontramos ese pedido en este navegador. Verifica el número; los pedidos de demostración solo se guardan en el dispositivo donde se crearon.';
-            get('trackingResult').hidden = false;
+            showTrackingMessage('No encontramos ese pedido en este navegador. Verifica el número; los pedidos de demostración solo se guardan en el dispositivo donde se crearon.');
             return;
         }
         showTrackingOrder(order);
@@ -499,7 +518,13 @@ if (trackingForm) {
     if (referenceFromUrl) {
         get('trackingReference').value = referenceFromUrl;
         const order = findOrderByReference(referenceFromUrl);
-        if (order) showTrackingOrder(order);
+        if (ordersLoadError) {
+            showTrackingMessage('No se pudo leer el historial de pedidos de este navegador. Revisa el almacenamiento del navegador e inténtalo de nuevo.');
+        } else if (order) {
+            showTrackingOrder(order);
+        } else {
+            showTrackingMessage('No encontramos ese pedido en este navegador. Verifica el número; los pedidos de demostración solo se guardan en el dispositivo donde se crearon.');
+        }
     }
 }
 
